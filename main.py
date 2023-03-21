@@ -7,7 +7,7 @@ import argparse
 import json
 import time
 import sys
-
+import magic
 
 load_dotenv()
 def init_client():
