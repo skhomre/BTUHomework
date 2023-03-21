@@ -1,5 +1,5 @@
 import boto3
-import os 
+from os import getenv 
 from dotenv import load_dotenv
 import logging
 from botocore.exceptions import ClientError
@@ -7,7 +7,7 @@ import argparse
 import json
 import time
 import sys
-import magic
+
 
 load_dotenv()
 def init_client():
@@ -121,23 +121,24 @@ def upload_file(s3,bucket_name,file,object_path):
         return e
   return "Unsupported Format"
 
-s3_client = init_client()
-function_names = [name for name in dir() if callable(globals()[name])]
-for i in function_names:
-  if "ClientError" in i or "init" in i or "env" in i:
-    function_names.remove(i)
-parser = argparse.ArgumentParser(description = f"you can use following methods: {function_names}")
-parser.add_argument('command', type=str, nargs='+')
-args = parser.parse_args()
-try:
+if __name__ == "__main__":
+  s3_client = init_client()
+  function_names = [name for name in dir() if callable(globals()[name])]
+  for i in function_names:
+    if "ClientError" in i or "init" in i or "env" in i:
+      function_names.remove(i)
+  parser = argparse.ArgumentParser(description = f"you can use following methods: {function_names}")
+  parser.add_argument('command', type=str, nargs='+')
+  args = parser.parse_args()
+  try:
+    todo = globals()[args.command[0]]
+  except KeyError:
+    print("Unknown Command, Use Help For Available Commands")
+    sys.exit()
+
+
   todo = globals()[args.command[0]]
-except KeyError:
-  print("Unknown Command, Use Help For Available Commands")
-  sys.exit()
-
-
-todo = globals()[args.command[0]]
-print(todo(s3_client,*args.command[1:]))
+  print(todo(s3_client,*args.command[1:]))
 
 
 
