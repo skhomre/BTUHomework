@@ -7,7 +7,7 @@ import argparse
 import json
 import time
 import sys
-import magic
+
 
 load_dotenv()
 def init_client():
@@ -120,6 +120,60 @@ def upload_file(s3,bucket_name,file,object_path):
       except Exception as e:
         return e
   return "Unsupported Format"
+
+def large_upload(s3,bucket_name,file,part_size=10):
+  each_size = part_size * 1024 * 1024
+  multipart_upload = s3.meta.client.create_multipart_upload(
+    Bucket=bucket_name,
+    Key=file
+)
+  with open(file, 'rb') as file:
+    parts = []
+    part_number = 1
+    while True:
+        data = file.read(each_size)
+        if not data:
+            break
+        response = s3.meta.client.upload_part(
+            Bucket=bucket_name,
+            Key=file,
+            PartNumber=part_number,
+            UploadId=multipart_upload['UploadId'],
+            Body=data
+        )
+        parts.append({
+            'PartNumber': part_number,
+            'ETag': response['ETag']
+        })
+        part_number += 1
+
+  s3.meta.client.complete_multipart_upload(
+  Bucket=bucket_name,
+  Key=file,
+  UploadId=multipart_upload['UploadId'],
+  MultipartUpload={'Parts': parts}
+)
+    return True
+
+def bucket_action(s3,bucket_name,key,flag):
+  obj = s3.Object(bucket_name, key)
+  if flag == 'del':
+    obj.delete()
+    return f"{key} was deleted from {bucket_name}"
+  elif flag == 'copy':
+    obj.copy_from(CopySource={'Bucket': bucket_name, 'Key': key})
+    return f"{key} copied"
+  elif flag == 'rename':
+    new_key = input("type new name ")
+    s3.Object(bucket_name, new_key).copy_from(CopySource={'Bucket': bucket_name, 'Key': key})
+    
+    # Delete the object with the old key name
+    s3.Object(bucket_name,key).delete()
+    
+    return f"{key} renamed to {new_key} in bucket {bucket_name}"
+
+
+
 
 if __name__ == "__main__":
   s3_client = init_client()
