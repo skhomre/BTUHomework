@@ -7,6 +7,8 @@ import argparse
 import json
 import time
 import sys
+import magic
+import requests
 
 
 load_dotenv()
@@ -20,7 +22,7 @@ def init_client():
 
 
 
-def create_bucket(client, name, region = "us-east-2"):
+def create_bucket(client, name, region = "us-west-2"):
   try:
     location = {"LocationConstraint" : region}
     client.create_bucket(Bucket = name,CreateBucketConfiguration = location )
@@ -102,16 +104,16 @@ def put_object_acl(s3,bucket_name,object_name,jsonfile):
 def download_file(s3,bucket_name,object_path,save_path):
 
   try:
-    s3.Bucket(bucket_name).download_file(object_path, save_path)
+    s3.download_file(bucket_name, object_path, save_path)
     return f"File downloaded from S3 bucket '{bucket_name}' to '{save_path}'"
   except Exception as e:
     return e
   return "Unsupported Format"
 
 def upload_file(s3,bucket_name,file,object_path):
-  obj = magic.Magic()
+  obj = magic.Magic(magic_file="C:/Windows/System32/magic.mgc")
   ftype = obj.from_file(file)
-  supported_formats = (".bmp, .jpg, .jpeg, .png, .webp, .mp4")
+  supported_formats = (".bmp, .jpg, .jpeg, .png, .webp, .mp4, .txt")
   for i in supported_formats:
     if i in ftype.lower():
       try:
@@ -153,7 +155,7 @@ def large_upload(s3,bucket_name,file,part_size=10):
   UploadId=multipart_upload['UploadId'],
   MultipartUpload={'Parts': parts}
 )
-    return True
+  return True
 
 def bucket_action(s3,bucket_name,key,flag):
   obj = s3.Object(bucket_name, key)
@@ -172,8 +174,33 @@ def bucket_action(s3,bucket_name,key,flag):
     
     return f"{key} renamed to {new_key} in bucket {bucket_name}"
 
+def inspire(s3,bucket_name,author):
+  sibrdzne = {}
+  resp = requests.get("https://type.fit/api/quotes")
+  jsn = json.loads(resp.content.decode("utf-8"))
+  for i in jsn:
+    if i["author"] == author:
+      sibrdzne["text"] = i["text"]
+      sibrdzne["author"] = i["author"]
+  with open("citation.json", "w") as f:
+    f.write(json.dumps(sibrdzne))
+  upload_file(s3,bucket_name,"citation.json","citation.json")
+  return True
 
 
+
+
+def saitis_moxodva(s3,bucket_name,indexfile):
+  s3.put_bucket_website(
+  Bucket=bucket_name,
+  WebsiteConfiguration={
+      'IndexDocument': {'Suffix': indexfile},
+    }
+)
+  s3.put_bucket_policy(Bucket=bucket_name, Policy=generate_public_read(s3,bucket_name))
+  website_url = f'http://{bucket_name}.s3-website-us-west-2.amazonaws.com/'
+
+  return website_url 
 
 if __name__ == "__main__":
   s3_client = init_client()
@@ -193,6 +220,3 @@ if __name__ == "__main__":
 
   todo = globals()[args.command[0]]
   print(todo(s3_client,*args.command[1:]))
-
-
-
