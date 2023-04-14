@@ -9,6 +9,8 @@ readme = "README.md"
 python = "^3.8"
 boto3 = "^1.26.94"
 argparse = "^1.4.0"
+libmagic = "^1.0"
+requests = "^2.28.2"
 
 
 [build-system]
